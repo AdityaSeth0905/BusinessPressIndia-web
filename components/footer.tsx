@@ -116,7 +116,7 @@ const Footer = () => {
             &copy; {new Date().getFullYear()} Indo-African Scholarships. All rights reserved.
           </div>
           <div className="text-gray-400 mb-4 md:mb-0">
-            Made by:{" "}
+            Powered by:{" "}
             <Link href="https://www.xyronixlabs.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
               Xyronix Labs
             </Link>
