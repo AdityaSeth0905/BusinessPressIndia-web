@@ -115,6 +115,12 @@ const Footer = () => {
           <div className="text-gray-400 mb-4 md:mb-0">
             &copy; {new Date().getFullYear()} Indo-African Scholarships. All rights reserved.
           </div>
+          <div className="text-gray-400 mb-4 md:mb-0">
+            Made by:{" "}
+            <Link href="https://www.xyronixlabs.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+              Xyronix Labs
+            </Link>
+          </div>
           <div className="flex space-x-6">
             <Link href="/terms" className="text-gray-400 hover:text-brand-orange transition-colors text-sm">
               Terms & Conditions
