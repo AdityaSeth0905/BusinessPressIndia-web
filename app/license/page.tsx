@@ -1,3 +1,5 @@
+import React from "react";
+
 export default function LicensePage() {
   return (
     <div className="bg-gradient-to-b from-black to-gray-900 min-h-screen pt-24 pb-20">
@@ -8,7 +10,7 @@ export default function LicensePage() {
             Information regarding the licensing and usage of content on the Indo-African Scholarships website.
           </p>
         </div>
-        
+
         <div className="max-w-4xl mx-auto">
           <div className="bg-gray-800/50 p-8 rounded-xl border border-gray-700 mb-12">
             <h2 className="text-2xl font-bold text-white mb-6">Website Content License</h2>
@@ -24,7 +26,13 @@ export default function LicensePage() {
               </p>
             </div>
           </div>
-          
-          <div className="bg-gray-800/50 p-8 rounded-xl border border-gray-700 mb-12">
-            <h2 className="text-2xl font-bold text-white mb-6">Permitted Use</h2\
 
+          <div className="bg-gray-800/50 p-8 rounded-xl border border-gray-700 mb-12">
+            <h2 className="text-2xl font-bold text-white mb-6">Permitted Use</h2>
+            {/* Add content for the "Permitted Use" section here */}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
