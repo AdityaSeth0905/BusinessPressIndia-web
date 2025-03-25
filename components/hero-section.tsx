@@ -28,7 +28,7 @@ const HeroSection = () => {
           >
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
               <span className="block">10,000+ Indian-African</span>
-              <span className="text-transparent bg-clip-text scholarship-gradient animate-gradient">
+              <span className="text-black bg-clip-text scholarship-gradient animate-gradient">
                 Scholarship Awards
               </span>
             </h1>
