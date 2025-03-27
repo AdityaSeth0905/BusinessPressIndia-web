@@ -8,18 +8,33 @@ export default function PartnersPage() {
     {
       category: "Educational Institutions",
       entities: [
-        { name: "University of Delhi", location: "New Delhi, India", logo: "/placeholder.svg?height=100&width=180" },
-        { name: "Amity University", location: "Noida, India", logo: "/placeholder.svg?height=100&width=180" },
+        { name: "Sanskriti University", location: "Mathura, Uttar Pradesh", logo: "/placeholder.svg?height=100&width=180" },
+        { name: "World University of Design", location: "Sonipat, Haryana", logo: "/placeholder.svg?height=100&width=180" },
         {
-          name: "Lovely Professional University",
-          location: "Punjab, India",
+          name: "RIMT University",
+          location: "Mandi, Punjab",
           logo: "/placeholder.svg?height=100&width=180",
         },
-        { name: "Sharda University", location: "Greater Noida, India", logo: "/placeholder.svg?height=100&width=180" },
-        { name: "Chandigarh University", location: "Chandigarh, India", logo: "/placeholder.svg?height=100&width=180" },
+        { name: "Ryat Bahra University", location: "Mohali, Punjab", logo: "/placeholder.svg?height=100&width=180" },
+        { name: "Bahara University", location: "Shimla, Himachal Pradesh", logo: "/placeholder.svg?height=100&width=180" },
         {
-          name: "Symbiosis International University",
-          location: "Pune, India",
+          name: "Indus International University",
+          location: "Una, Himachal Pradesh",
+          logo: "/placeholder.svg?height=100&width=180",
+        },
+        {
+          name: "Renaissance University",
+          location: "Indore, Madhya Pradesh",
+          logo: "/placeholder.svg?height=100&width=180",
+        },
+        {
+          name: "Abhyuday University",
+          location: "Khargone, Madhya Pradesh",
+          logo: "/placeholder.svg?height=100&width=180",
+        },
+        {
+          name: "Universal Group of Institutions",
+          location: "Mohali, Punjab",
           logo: "/placeholder.svg?height=100&width=180",
         },
       ],
@@ -30,6 +45,7 @@ export default function PartnersPage() {
         { name: "Africa Union", location: "Addis Ababa, Ethiopia", logo: "/placeholder.svg?height=100&width=180" },
         { name: "UNESCO", location: "Paris, France", logo: "/placeholder.svg?height=100&width=180" },
         { name: "World Bank Education", location: "Washington DC, USA", logo: "/placeholder.svg?height=100&width=180" },
+        { name: "Africa Asia Scholars Global Network", location: "London, United Kingdom", logo: "/placeholder.svg?height=100&width=180" },
       ],
     },
     {
