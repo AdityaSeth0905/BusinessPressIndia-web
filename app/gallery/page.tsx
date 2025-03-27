@@ -1,8 +1,12 @@
-import Image from "next/image"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
+"use client";
+import Image from "next/image";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
 
 export default function GalleryPage() {
+  const [eventImages, setEventImages] = useState<{ id: number; src: string; alt: string }[]>([]);
+  
   const galleryImages = [
     {
       id: 1,
@@ -64,8 +68,41 @@ export default function GalleryPage() {
       alt: "Partnership at sporting event",
       caption: "Building educational ties at the Indian Open Polo Championship",
     },
-  ]
-
+    {
+      id: 1,
+      src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202025-03-24%20at%2022.17.46_e11e5784.jpg-8P2vayVfHFC99cDhW3XJCklC7vKJsu.jpeg",
+      alt: "Indo-African Scholarship Event",
+      caption: "Officials and dignitaries at an Indo-African Scholarship event",
+    },
+    {
+      id: 2,
+      src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202025-03-24%20at%2022.17.45_e60008c4.jpg-Cn5796BocsVk62Fn5N5Jf1rQzyfgdD.jpeg",
+      alt: "Collaborative meeting between Indian and African officials",
+      caption: "Representatives from India and Africa discussing scholarship opportunities",
+    },
+    {
+      id: 3,
+      src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202025-03-24%20at%2022.17.44_d7b1d390.jpg-VC2PlTDLbjWutAVGhEgfveE74nHvVF.jpeg",
+      alt: "GSUA Summit and World Press Conference",
+      caption: "GSUA '25 Summit Awards & Expo announcement in London",
+    },
+  ];
+  
+  // Manually loop through each of the 182 images using your file naming pattern.
+  const eventImagesManual: { id: number; src: string; alt: string }[] = [];
+  for (let i = 1; i <= 182; i++) {
+    eventImagesManual.push({
+      id: i,
+      src: encodeURI(`/gallery/1 (${i}).JPG`),
+      alt: `Scholarship Event Image ${i}`,
+    });
+  }
+  
+  // Set manual images to state (if needed for further manipulation)
+  useEffect(() => {
+    setEventImages(eventImagesManual);
+  }, []);
+  
   return (
     <div className="bg-gradient-to-b from-black to-gray-900 min-h-screen pt-24 pb-20">
       <div className="container mx-auto px-4">
@@ -76,40 +113,46 @@ export default function GalleryPage() {
             India and African nations.
           </p>
         </div>
-
+  
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {galleryImages.map((image) => (
-            <div
-              key={image.id}
-              className="group relative overflow-hidden rounded-xl bg-gray-800/50 border border-gray-700 hover:border-brand-orange transition-all duration-300"
-            >
+          {galleryImages.map((image, index) => (
+            <div key={`gallery-${index}`} className="group relative overflow-hidden rounded-xl bg-gray-800/50 border border-gray-700 hover:border-brand-orange transition-all duration-300">
               <div className="aspect-[4/3] relative overflow-hidden">
-                <Image
-                  src={image.src || "/placeholder.svg"}
-                  alt={image.alt}
-                  fill
-                  className="object-cover gallery-image"
-                />
+                <Image src={image.src || "/placeholder.svg"} alt={image.alt} fill className="object-cover gallery-image" />
               </div>
-
               <div className="p-4 bg-gray-800/90 backdrop-blur-sm">
                 <p className="text-gray-200 text-sm">{image.caption}</p>
               </div>
             </div>
           ))}
         </div>
-
+  
         <div className="mt-16 text-center">
           <p className="text-gray-300 mb-6">
-            These images capture the spirit of collaboration and educational diplomacy that drives the Indo-African
-            Scholarship initiative.
+            These images capture the spirit of collaboration and educational diplomacy that drives the Indo-African Scholarship initiative.
           </p>
           <Button asChild className="bg-brand-orange hover:bg-orange-600 text-white">
             <Link href="/about-us">Learn More About Our Initiative</Link>
           </Button>
         </div>
+  
+        {/* New Section for INDIA-AFRICA SCHOLARSHIP AWARDS */}
+        <div className="mt-24 text-center">
+          <h2 className="text-3xl font-bold text-white mb-6">India-Africa Scholarship Awards 2025</h2>
+          <p className="text-lg text-gray-300 mb-8">
+            A special event showcasing the achievements and partnerships in education.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {eventImages.map((image, index) => (
+              <div key={`event-${index}`} className="group relative overflow-hidden rounded-xl bg-gray-800/50 border border-gray-700 hover:border-brand-orange transition-all duration-300">
+                <div className="aspect-[4/3] relative overflow-hidden">
+                  <Image src={image.src || "/placeholder.svg"} alt={image.alt} fill className="object-cover gallery-image" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
-  )
+  );
 }
-

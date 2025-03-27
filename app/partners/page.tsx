@@ -61,7 +61,7 @@ export default function PartnersPage() {
       category: "NGOs and Foundations",
       entities: [
         { name: "AASGON", location: "Kent, UK", logo: "/placeholder.svg?height=100&width=180" },
-        { name: "Business Press India", location: "Delhi NCR, India", logo: "/placeholder.svg?height=100&width=180" },
+        { name: "Business Press India", location: "Delhi NCR, India", logo: "/BPI.png" },
         {
           name: "Global South Foundation",
           location: "Johannesburg, South Africa",
