@@ -8,29 +8,29 @@ export default function PartnersPage() {
     {
       category: "Educational Institutions",
       entities: [
-        { name: "Sanskriti University", location: "Mathura, Uttar Pradesh", logo: "/placeholder.svg?height=100&width=180" },
-        { name: "World University of Design", location: "Sonipat, Haryana", logo: "/placeholder.svg?height=100&width=180" },
+        { name: "Sanskriti University", location: "Mathura, Uttar Pradesh", logo: "/sanskritiuniversity.ico" },
+        { name: "World University of Design", location: "Sonipat, Haryana", logo: "/wud.png" },
         {
           name: "RIMT University",
           location: "Mandi, Punjab",
-          logo: "/placeholder.svg?height=100&width=180",
+          logo: "/rimt.png",
         },
-        { name: "Ryat Bahra University", location: "Mohali, Punjab", logo: "/placeholder.svg?height=100&width=180" },
-        { name: "Bahara University", location: "Shimla, Himachal Pradesh", logo: "/placeholder.svg?height=100&width=180" },
+        { name: "Ryat Bahra University", location: "Mohali, Punjab", logo: "/ryatbarah.png" },
+        { name: "Bahara University", location: "Shimla, Himachal Pradesh", logo: "/baharauniversity.png" },
         {
           name: "Indus International University",
           location: "Una, Himachal Pradesh",
-          logo: "/placeholder.svg?height=100&width=180",
+          logo: "/IndusInternationalUniversity.png",
         },
         {
           name: "Renaissance University",
           location: "Indore, Madhya Pradesh",
-          logo: "/placeholder.svg?height=100&width=180",
+          logo: "/RenaissanceUniversity.png",
         },
         {
           name: "Abhyuday University",
           location: "Khargone, Madhya Pradesh",
-          logo: "/placeholder.svg?height=100&width=180",
+          logo: "/AbhyudayUniversity.png",
         },
         {
           name: "Universal Group of Institutions",
@@ -42,25 +42,16 @@ export default function PartnersPage() {
     {
       category: "International Organizations",
       entities: [
-        { name: "Africa Union", location: "Addis Ababa, Ethiopia", logo: "/placeholder.svg?height=100&width=180" },
-        { name: "UNESCO", location: "Paris, France", logo: "/placeholder.svg?height=100&width=180" },
-        { name: "World Bank Education", location: "Washington DC, USA", logo: "/placeholder.svg?height=100&width=180" },
-        { name: "Africa Asia Scholars Global Network", location: "London, United Kingdom", logo: "/placeholder.svg?height=100&width=180" },
-      ],
-    },
-    {
-      category: "Corporate Partners",
-      entities: [
-        { name: "Jindal Steel", location: "New Delhi, India", logo: "/placeholder.svg?height=100&width=180" },
-        { name: "Tata Consultancy Services", location: "Mumbai, India", logo: "/placeholder.svg?height=100&width=180" },
-        { name: "Infosys", location: "Bangalore, India", logo: "/placeholder.svg?height=100&width=180" },
-        { name: "Mahindra Group", location: "Mumbai, India", logo: "/placeholder.svg?height=100&width=180" },
+        { name: "Africa Union", location: "Addis Ababa, Ethiopia", logo: "africaunion.ico" },
+        { name: "UNESCO", location: "Paris, France", logo: "/unesco.ico" },
+        { name: "World Bank Education", location: "Washington DC, USA", logo: "/worldbankeducation.png" },
+        
       ],
     },
     {
       category: "NGOs and Foundations",
       entities: [
-        { name: "AASGON", location: "Kent, UK", logo: "/placeholder.svg?height=100&width=180" },
+        { name: "AASGON", location: "Kent, UK", logo: "/aasgon.png" },
         { name: "Business Press India", location: "Delhi NCR, India", logo: "/BPI.png" },
         {
           name: "Global South Foundation",
@@ -69,6 +60,13 @@ export default function PartnersPage() {
         },
       ],
     },
+    {
+      category: "Digital Partner",
+      entities: [
+        { name: "Xyronix Labs", location: "Delhi NCR, India", logo: "/xyronixlabs.png" },
+        
+      ],
+    }
   ]
 
   return (
@@ -124,7 +122,7 @@ export default function PartnersPage() {
                         alt={partner.name}
                         width={180}
                         height={100}
-                        className="max-h-full w-auto object-contain grayscale group-hover:grayscale-0 transition-all"
+                        className="max-h-full w-auto object-contain "
                       />
                     </div>
                     <h3 className="text-lg font-semibold text-white mb-1">{partner.name}</h3>

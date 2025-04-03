@@ -1,3 +1,5 @@
+"use client"
+import { useState } from "react";
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { GraduationCap, BookOpen, Award, CheckCircle, Clock, Calendar, FileText, ArrowRight } from "lucide-react"
@@ -5,7 +7,29 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 export default function ScholarshipsPage() {
-  const scholarshipPrograms = [
+  
+  // Define the type for courses
+  type Courses = {
+    [field: string]: string[];
+  };
+
+  // Define the type for scholarship programs
+  type ScholarshipProgram = {
+    id: string;
+    title: string;
+    icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+    description: string;
+    fields: string[];
+    courses: Courses;
+  };
+  
+  const [expandedField, setExpandedField] = useState<string | null>(null);
+
+  const toggleField = (field: string) => {
+    setExpandedField((prev) => (prev === field ? null : field));
+  };
+
+  const scholarshipPrograms: ScholarshipProgram[] =  [
     {
       id: "undergraduate",
       title: "Undergraduate Programs",
@@ -19,6 +43,103 @@ export default function ScholarshipsPage() {
         "Humanities",
         "Arts & Design",
       ],
+      courses: {
+        "Medical and Allied Sciences": [
+          "Bachelor of Dental Surgery",
+          "Nursing (Post-Basic)",
+          "PARAMEDICS",
+          "(Nursing)",
+          "General Nursing and Midwifery",
+          "Bachelor of Science in Medical Radiology and Imaging Technology",
+          "Bachelor of Science in Medical Radiology and Imaging Technology (Lateral Entry)",
+          "Bachelor of Science in Operation Theatre and Anaesthesia Technology",
+          "Bachelor of Science in Operation Theatre and Anaesthesia Technology (Lateral Entry)",
+          "Bachelor of Science in Forensic Science",
+          "Bachelor of Science in Cardiovascular Technology",
+          "Renal Sciences & Dialysis Therapy Technology",
+          "Renal Sciences & Dialysis Therapy Technology (Lateral Entry)",
+          "Bachelor of Physiotherapy",
+          "BPT Bachelor of Physiotherapy (Lateral Entry)",
+        ],
+        "Agriculture and Allied Sciences": [
+          "(Agriculture - Hons)",
+          "B.Vocational (Organic Farming)",
+          "B.Vocational in Floriculture and Landscaping",
+        ],
+        "Science": [
+          "Bachelor of Science in Physical Sciences",
+          "Bachelor of Science (Hons) in Physics",
+          "Bachelor of Science (Hons) in Chemistry",
+          "Bachelor of Science (Hons) in Mathematics",
+          "Bachelor of Science (Hons) in Computer Science",
+          "CMS (Computer,Statistics,Mathematics)",
+          "Bachelor of Science in Astronomy and Astrophysics",
+          "Artificial Intelligence and Mathematics",
+          "Bachelor of Science in Data Science and Computing",
+        ],
+        "Commerce": ["Bachelor of Commerce (Honours)"],
+        "Management": [
+          "BBA : Bachelor of Business Administration (Dual Specialisation)",
+          "Bachelor of Business Administration collaboration with Sunstone",
+          "Bachelor of Business Administration with a Specialisation in Business Analytics in collaboration with Upgrad",
+        ],
+        "Computer Applications": [
+          "Bachelor of Computer Applications",
+          "Bachelor of Computer Applications in Data Science",
+          "Bachelor of Computer Applications in Artificial Intelligence",
+          "Bachelor of Computer Applications in Cyber Security",
+          "Bachelor of Computer Applications in Full Stack Development",
+        ],
+        "Engineering": [
+          "Bachelor in Technology in Computer Science Engineering",
+          "Bachelor in Technology in Computer Science Engineering with a Specialisation in Artificial Intelligence & Machine Learning",
+          "Bachelor in Technology in Computer Science Engineering with a Specialisation in Full Stack Development",
+          "Bachelor in Technology in Computer Science Engineering with a Specialisation in Data Science",
+          "Bachelor in Technology in Computer Science Engineering with a Specialisation in Cyber Security & Ethical Hacking",
+          "Bachelor in Technology in Computer Science Engineering (Lateral Entry)",
+          "Bachelor of Technology in Mechanical Engineering",
+          "Bachelor of Technology in Aerospace Engineering",
+          "Bachelor in Technology in Mechatronics Engineering",
+          "Bachelor of Technology in Biomedical Engineering",
+          "Bachelor in Technology in Electronics And Communication Engineering",
+          "Bachelor in Technology in Electrical Engineering",
+          "Bachelor of Technology in Internet of Things",
+          "Bachelor in Technology in Electronics And Communication Engineering (Lateral Entry)",
+          "Bachelor of Technology in Electronics and Computer Engineering",
+        ],
+        "Fashion and Design": [
+          "Bachelor of Science in Fashion Designing",
+          "Bachelor of Design in Interior Designing",
+        ],
+        "Arts and Humanities": [
+          "Bachelor of Arts",
+          "Bachelor of Arts (Hons) in Punjabi",
+          "Bachelor of Arts (Hons) in Hindi",
+          "Bachelor of Arts (Hons) in Sociology",
+          "Bachelor of Arts (Hons) in Psychology",
+          "Bachelor of Arts (Hons) in History",
+          "Bachelor of Arts (Hons) in Physical Education",
+          "Bachelor of Arts (Hons) in Economics",
+          "Bachelor of Arts (Hons) in Computer Science",
+          "Bachelor of Arts (Hons) in English",
+          "Bachelor of Arts (Hons) in Political Science",
+          "Bachelor of Arts (Hons) in Geography",
+          "Bachelor of Arts (Hons) in Home Science",
+          "Bachelor of Arts (Hons) in Public Administration",
+          "Bachelor of Arts (Hons) in Music",
+        ],
+        "Social Work": ["Bachelor of Social Work"],
+        "Journalism and Mass Communication": [
+          "Bachelor of Journalism and Mass Communication",
+        ],
+        "Library and Information Science": [
+          "Bachelor of Library and Information Science",
+        ],
+        "Education": [
+          "Bachelor of Education",
+          "Bachelor of Physical Education",
+        ],
+      },
     },
     {
       id: "postgraduate",
@@ -33,6 +154,95 @@ export default function ScholarshipsPage() {
         "International Relations",
         "Environmental Science",
       ],
+      courses: {
+        "Medical and Allied Sciences": [
+          "Master of Science in Radiology and Imaging Technology",
+          "Master of Science in Medical Radiology and Imaging Technology",
+          "Master of Science in Operation Theatre and Anaesthesia Technology",
+          "Master of Science in Renal Sciences and Dialysis Therapy",
+          "Master of Physiotherapy",
+          "Master of Physiotherapy in Sports",
+          "Master of Physiotherapy in Orthopaedics",
+          "Master of Physiotherapy in Neurology",
+          "Master of Physiotherapy in Cardiorespiratory",
+          "Master of Physiotherapy in Pediatrics",
+          "Master of Science in Clinical Embryology and Reproductive Genetics",
+          "Master of Science in Medical Laboratory Technology",
+          "Master of Science in Medical Imaging Technology",
+          "Master of Science in Optometry",
+        ],
+        "Agriculture and Allied Sciences": [
+          "Master of Science in Agriculture (Horticulture)",
+          "Master of Science in Agriculture (Agronomy)",
+          "Master of Science in Agriculture (Plant Pathology)",
+        ],
+        "Science": [
+          "Master of Science in Chemistry",
+          "Master of Science degree in Pharmaceutical Chemistry",
+          "Master of Science in Physics",
+          "Master of Science in Mathematics",
+          "Master of Science in Renewable Energy",
+          "Master of Science in Astronomy and Astrophysics",
+          "Master of Science in Biostatistics",
+          "Master of Science in Clinical Microbiology",
+          "Artificial Intelligence and Mathematics",
+          "Data Science and Computing",
+        ],
+        "Commerce": ["Master of Commerce"],
+        "Management": [
+          "MBA : Master of Business Administration (Dual Specialisation)",
+          "MBA in Sales and Distribution Management",
+          "Executive Master of Business Administration",
+          "Master of Business Administration in Event Management",
+          "Master of Business Administration in Financial and Management Analytics",
+          "Master of Business Administration in Retail Management",
+          "Masters of Business Administration in collaboration with Sunstone",
+          "Master of Business Administration with a Specialisation in Business Analytics in collaboration with Upgrad",
+          "Masters of Business Administration with a Specialisation in Business & Data Analytics in collaboration with IBM",
+          "Master of Business Administration with a Specialisation in Data Science in collaboration with IBM",
+        ],
+        "Computer Applications": [
+          "Master of Computer Applications",
+          "Master of Computer Applications in Artificial Intelligence and Machine Learning",
+          "Master of Science in Information Technology (IT)",
+        ],
+        "Engineering": [
+          "Master in Technology in Computer Science Engineering",
+          "Master in Technology - CSE with Specialization in Artificial Intelligence",
+          "Master in Technology in Computer Science Engineering with a Specialisation in Data Science",
+          "Master in Technology in Computer Science Engineering with a Specialisation in Cyber Security",
+          "Master of Technology in Mechanical Engineering",
+          "Master of Technology in Production Engineering",
+          "Master in Technology in Electronics And Communication Engineering",
+          "Master in Technology in Electrical Engineering",
+          "Master in Technology in Biomedical Engineering",
+        ],
+        "Fashion and Design": [
+          "Master of Science in Fashion Management",
+          "Master of Business Administration in Fashion Business Management",
+        ],
+        "Arts and Humanities": [
+          "Master of Arts in Economics",
+          "Master of Arts in Psychology",
+          "Master of Arts in Clinical Psychology",
+          "Master of Arts in Sociology",
+          "Master of Arts in Political Science",
+          "Master of Arts in English",
+          "Master of Arts in Punjabi",
+          "Master of Arts in Hindi",
+          "Master of Arts in History",
+          "Master of Arts in Police Administration",
+          "Master of Arts in Public Administration",
+        ],
+        "Social Work": ["Master of Social Work"],
+        "Journalism and Mass Communication": [
+          "Master of Mass Communication and Journalism",
+        ],
+        "Library and Information Science": [
+          "Master of Library and Information Science",
+        ],
+        "Education": ["Master of Education"],
+      },
     },
     {
       id: "doctoral",
@@ -47,6 +257,83 @@ export default function ScholarshipsPage() {
         "Environmental Studies",
         "Social Sciences",
       ],
+      courses: {
+        "Medical and Allied Sciences": [
+          "PhD in Medical Sciences",
+          "PhD in Allied Health Sciences",
+        ],
+        "Agriculture and Allied Sciences": [
+          "PhD in Agriculture",
+          "PhD in Horticulture",
+        ],
+        "Science": [
+          "PhD in Physics",
+          "PhD in Chemistry",
+        ],
+        "Commerce": ["PhD in Commerce"],
+        "Management": ["PhD in Management"],
+        "Computer Applications": ["PhD in Computer Applications"],
+        "Engineering": ["PhD in Engineering"],
+        "Fashion and Design": ["PhD in Fashion Design"],
+        "Arts and Humanities": [
+          "PhD in Arts",
+          "PhD in Humanities",
+        ],
+        "Social Work": ["PhD in Social Work"],
+        "Journalism and Mass Communication": [
+          "PhD in Journalism and Mass Communication",
+        ],
+        "Library and Information Science": [
+          "PhD in Library and Information Science",
+        ],
+        "Education": ["PhD in Education"],
+        "Interdisciplinary Programs": [
+          "PhD in Interdisciplinary Studies",
+        ],
+        "Allied Health Sciences": [
+          "PhD in Physiotherapy",
+          "PhD in Occupational Therapy",
+        ],
+        "Nursing": ["PhD in Nursing"],
+        "Pharmacy": ["PhD in Pharmaceutical Sciences"],
+        "Engineering and Technology": [
+          "PhD in Computer Science and Engineering",
+          "PhD in Mechanical Engineering",
+          "PhD in Electrical Engineering",
+          "PhD in Civil Engineering",
+        ],
+        "Management and Commerce": [
+          "PhD in Management",
+          "PhD in Commerce",
+        ],
+        "Arts and Humanities (continued)": [
+          "PhD in English",
+          "PhD in History",
+          "PhD in Philosophy",
+        ],
+        "Social Sciences": [
+          "PhD in Sociology",
+          "PhD in Psychology",
+          "PhD in Economics",
+        ],
+        "Interdisciplinary Programs (continued)": [
+          "PhD in Interdisciplinary Studies",
+        ],
+        "Specialized Programs": [
+          "PhD in Data Science",
+          "PhD in Artificial Intelligence",
+          "PhD in Cyber Security",
+          "PhD in Environmental Science",
+          "PhD in Public Health",
+        ],
+        "Online and Distance Programs": [
+          "PhD in Online Education",
+          "PhD in Distance Education",
+        ],
+        "Liberal Arts": [
+          "PhD in Liberal Arts",
+        ],
+      },
     },
     {
       id: "skill-development",
@@ -61,6 +348,16 @@ export default function ScholarshipsPage() {
         "IoT & Embedded Systems",
         "Renewable Energy",
       ],
+      courses: {
+        "Skill Courses": [
+          "Digital Marketing Fundamentals",
+          "Advanced Web Development",
+          "Data Analytics with Python",
+          "Graphic Design Essentials",
+          "IoT & Embedded Systems Basics",
+          "Renewable Energy Systems",
+        ],
+      },
     },
     {
       id: "diploma",
@@ -75,6 +372,16 @@ export default function ScholarshipsPage() {
         "Agriculture",
         "Construction Management",
       ],
+      courses: {
+        "Diploma Courses": [
+          "Business Management Diploma",
+          "Healthcare Administration Diploma",
+          "Hospitality Management Diploma",
+          "Digital Technologies Diploma",
+          "Agriculture Diploma",
+          "Construction Management Diploma",
+        ],
+      },
     },
     {
       id: "certificate",
@@ -89,8 +396,19 @@ export default function ScholarshipsPage() {
         "Sustainable Development",
         "Public Health",
       ],
+      courses: {
+        "Certificate Programs": [
+          "Certificate in Project Management",
+          "Certificate in Financial Analysis",
+          "Certificate in Supply Chain Management",
+          "Certificate in Artificial Intelligence",
+          "Certificate in Sustainable Development",
+          "Certificate in Public Health",
+        ],
+      },
     },
-  ]
+  ];
+  
 
   const faqs = [
     {
@@ -204,10 +522,9 @@ export default function ScholarshipsPage() {
                   <CardDescription className="text-gray-400">{program.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <h4 className="text-white font-medium mb-2">Available Fields:</h4>
-                  <ul className="space-y-1">
-                    {program.fields.map((field, index) => (
-                      <li key={index} className="text-gray-300 flex items-center">
+                  <ul className="space-y-4">
+                    {program.fields.map((field) => (
+                      <li key={field} className="text-gray-300 flex items-center">
                         <div className="w-1.5 h-1.5 rounded-full bg-brand-orange mr-2"></div>
                         {field}
                       </li>
@@ -219,7 +536,7 @@ export default function ScholarshipsPage() {
                     variant="outline"
                     className="w-full text-white border-gray-600 hover:bg-brand-orange hover:text-black hover:border-brand-orange"
                   >
-                    Learn More
+                    <Link href={`/scholarships/${program.id}`}>Learn More</Link>
                   </Button>
                 </CardFooter>
               </Card>

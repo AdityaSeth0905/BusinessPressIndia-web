@@ -44,6 +44,11 @@ const Navbar = () => {
         <div className="flex justify-between items-center py-4">
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
+            <img
+                src="/BPI.png" // Replace with the actual path to your logo
+                alt="Logo"
+                className="h-14 w-16" // Adjust height and width as needed
+              />
               <span className="text-2xl font-bold text-white">Indo-African Scholarships</span>
             </Link>
           </div>
