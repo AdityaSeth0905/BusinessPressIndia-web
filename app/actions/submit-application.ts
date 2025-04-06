@@ -255,10 +255,5 @@ export async function submitApplication(formData: FormData) {
       }
   console.error("Error submitting application:", error)
 
-  // Return a user-friendly error message
-  return {
-    success: false,
-    message:
-      (error instanceof Error) ? `Error: ${error.message}` : "An unexpected error occurred. Please try again later.",
-  }
+  
 }}
