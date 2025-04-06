@@ -4,25 +4,30 @@ import { applicationSchema } from "@/app/lib/schemas/application-schema"
 import clientPromise from "@/app/lib/mongodb"
 import { z } from "zod"
 import { revalidatePath } from "next/cache"
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 import crypto from "crypto"
-import { sanitizeInput, maskSensitiveData } from "@/app/lib/utils/form-security"
-import { handleMongoDBError, logDatabaseOperation } from "@/app/lib/utils/db-error-handler"
+import { sanitizeInput, maskSensitiveData, validateFile } from "@/app/lib/utils/form-security"
+import { handleMongoDBError } from "@/app/lib/utils/db-error-handler"
+import { logDatabaseOperation } from "@/app/lib/utils/db-error-handler"
 import { rateLimit, checkSubmissionFrequency } from "@/app/lib/utils/rate-limiter"
 
 /**
  * Server action to submit application form data to MongoDB
+ * Handles form submission, validation, and database storage
+ *
  * @param formData - The form data from the client
  * @returns Object containing success status, application ID, and message
  */
 export async function submitApplication(formData: FormData) {
+  // Generate a request ID for tracking this submission in logs
+  const requestId = crypto.randomUUID()
+
   try {
-    // Generate a request ID for tracking this submission in logs
-    const requestId = crypto.randomUUID()
     console.log(`[${requestId}] Processing application submission`)
 
     // Get client IP for rate limiting
-    const ip = headers().get("x-forwarded-for") || "unknown"
+    const headersList = await headers()
+    const ip = headersList.get("x-forwarded-for") || headersList.get("x-real-ip") || "unknown"
 
     // Check rate limiting
     if (!rateLimit(ip)) {
@@ -85,6 +90,35 @@ export async function submitApplication(formData: FormData) {
           } else {
             rawFormData[actualKey].push(value)
           }
+        } else if (key.startsWith("documents.")) {
+          // Handle file uploads
+          const documentKey = key.replace("documents.", "")
+          if (!rawFormData.documents) {
+            rawFormData.documents = {}
+          }
+
+          // Store file information
+          if (value instanceof File) {
+            // Validate file
+            const validation = validateFile(
+              value,
+              ["application/pdf", "image/jpeg", "image/png"],
+              2, // 2MB max
+            )
+
+            if (!validation.valid) {
+              throw new Error(`Invalid file for ${documentKey}: ${validation.message}`)
+            }
+
+            // In a real implementation, you would upload the file to a storage service
+            // and store the URL in the database. For this example, we'll just store metadata.
+            rawFormData.documents[documentKey] = {
+              name: value.name,
+              type: value.type,
+              size: value.size,
+              lastModified: value.lastModified,
+            }
+          }
         } else {
           // Handle regular fields
           // For checkbox values, convert "on" to true
@@ -100,7 +134,10 @@ export async function submitApplication(formData: FormData) {
       })
     } catch (error) {
       console.error(`[${requestId}] Error processing form data:`, error)
-      throw new Error("Failed to process form data")
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to process form data",
+      }
     }
 
     // Handle boolean fields for declarations
@@ -165,7 +202,7 @@ export async function submitApplication(formData: FormData) {
       // Add metadata for security and auditing
       metadata: {
         ipAddress: ip,
-        userAgent: headers().get("user-agent") || "unknown",
+        userAgent: (await headersList).get("user-agent") || "unknown",
         submissionId: requestId,
         createdAt: new Date(),
       },
@@ -176,19 +213,30 @@ export async function submitApplication(formData: FormData) {
       const result = await db.collection("applications").insertOne(applicationDocument)
       console.log(`[${requestId}] Application inserted successfully with ID: ${result.insertedId}`)
 
-      // Log the database operation for auditing
-      logDatabaseOperation("INSERT", "applications", {
-        applicationId,
-        mongoId: result.insertedId.toString(),
-        timestamp: new Date().toISOString(),
-      })
+        logDatabaseOperation(
+          "INSERT",
+          "applications",
+          {
+            applicationId,
+            mongoId: result.insertedId.toString(),
+            timestamp: new Date().toISOString(),
+          }
+        )
+      } catch (error) {
+        console.error(`[${crypto.randomUUID()}] MongoDB insertion error:`, error)
+        return {
+          success: false,
+          message: handleMongoDBError(error),
+        }
+      }
 
       // Store the application ID in a cookie for reference
-      cookies().set("lastApplicationId", applicationId, {
+      (await cookies()).set("lastApplicationId", applicationId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         maxAge: 60 * 60 * 24 * 7, // 1 week
         path: "/",
+        sameSite: "strict",
       })
 
       // Revalidate the path to update any cached data
@@ -205,27 +253,12 @@ export async function submitApplication(formData: FormData) {
         success: false,
         message: handleMongoDBError(error),
       }
-    }
-  } catch (error) {
-    console.error("Error submitting application:", error)
+  console.error("Error submitting application:", error)
 
-    // Return a user-friendly error message
-    return {
-      success: false,
-      message:
-        error instanceof Error ? `Error: ${error.message}` : "An unexpected error occurred. Please try again later.",
-    }
+  // Return a user-friendly error message
+  return {
+    success: false,
+    message:
+      (error instanceof Error) ? `Error: ${error.message}` : "An unexpected error occurred. Please try again later.",
   }
-}
-
-// Helper function to safely get headers
-function headers() {
-  try {
-    return new Headers()
-  } catch (e) {
-    return {
-      get: () => null,
-    }
-  }
-}
-
+}}

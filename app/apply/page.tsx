@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -11,36 +11,34 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
-import { ChevronRight, ChevronLeft, CheckCircle, Upload, Plus, Trash2 } from "lucide-react"
+import { ChevronRight, ChevronLeft, CheckCircle, Upload, Plus, Trash2, AlertCircle, Info } from "lucide-react"
 import { useForm, useFieldArray, Controller, useWatch, type SubmitHandler } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-//import { applicationSchema } from "../actions/submit-application"
-import { submitApplication } from "../actions/submit-application"
-import { applicationSchema } from "@/app/lib/schemas/application-schema";
-import { extendedApplicationSchema } from "@/app/lib/schemas/application-schema";
+import { submitApplication } from "@/app/actions/submit-application"
+import { applicationSchema, type ApplicationFormData } from "@/app/lib/schemas/application-schema"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-// Define the type for our form data based on the Zod schema
-type ApplicationFormData = z.infer<typeof applicationSchema>
-
-//applicationSchema({
-//  studentDeclaration: z.boolean().refine((val) => val === true, {
-//    message: "You must agree to the student declaration",
-//  }),
-//  parentDeclaration: z.boolean().refine((val) => val === true, {
-//    message: "You must agree to the parent declaration",
-//  }),
-//})
-
+/**
+ * ApplyPage Component
+ *
+ * A multi-step form for scholarship applications with comprehensive validation,
+ * error handling, and MongoDB integration.
+ */
 export default function ApplyPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const programType = searchParams.get("program") || ""
 
+  // Form state management
   const [step, setStep] = useState(1)
   const [formSubmitted, setFormSubmitted] = useState(false)
   const [applicationId, setApplicationId] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [showErrorDialog, setShowErrorDialog] = useState(false)
+  const [formErrors, setFormErrors] = useState<Record<string, string[]>>({})
   const formRef = useRef<HTMLFormElement>(null)
 
   // Initialize the form with react-hook-form
@@ -48,23 +46,31 @@ export default function ApplyPage() {
     register,
     handleSubmit,
     control,
-    formState: { errors },
+    setValue,
+    formState: { errors, isValid, isDirty, dirtyFields },
+    trigger,
+    getValues,
+    reset,
   } = useForm<ApplicationFormData>({
     resolver: zodResolver(applicationSchema),
     defaultValues: {
-      programType: "Undergraduate Degree",
+      programType: (programType as "Skill Courses" | "Diploma" | "Undergraduate Degree" | "Postgraduate Degree" | "Doctoral Program") || "Undergraduate Degree",
       hostelRequired: "Yes",
       siblings: [],
       entranceTests: [],
+      studentDeclaration: false,
+      parentDeclaration: false,
     },
+    mode: "onChange", // Validate on change for better user experience
   })
 
-  const watch = useWatch({ control });
+  // Watch form values for conditional rendering
+  const watch = useWatch({ control })
   const currentlyEnrolled = useWatch({
     control,
     name: "currentlyEnrolled",
-    defaultValue: "No", // Default value if not set
-  });
+    defaultValue: "No",
+  })
 
   // Set up field arrays for siblings and entrance tests
   const {
@@ -85,12 +91,52 @@ export default function ApplyPage() {
     name: "entranceTests",
   })
 
-  const onSubmit: SubmitHandler<ApplicationFormData> = async (data) => {
+  // Initialize form with program type from URL if available
+  useEffect(() => {
+    if (programType) {
+      // Validate that the program type is one of the allowed values
+      const validProgramTypes = [
+        "Skill Courses",
+        "Diploma",
+        "Undergraduate Degree",
+        "Postgraduate Degree",
+        "Doctoral Program",
+      ]
+
+      if (validProgramTypes.includes(programType)) {
+        setValue("programType", programType as any)
+      }
+    }
+  }, [programType, setValue])
+
+  /**
+   * Form submission handler
+   * Processes form data and submits to the server
+   */
+  const onSubmit = async (data: ApplicationFormData) => {
     setIsSubmitting(true)
+    setErrorMessage(null)
 
     try {
       // Create a FormData object to handle file uploads
       const formData = new FormData(formRef.current!)
+
+      // Add form data that might not be captured by the form element
+      Object.entries(data).forEach(([key, value]) => {
+        // Skip file inputs as they're already in the FormData
+        if (key !== "documents" && value !== undefined) {
+          if (Array.isArray(value)) {
+            // Handle arrays
+            formData.append(key, JSON.stringify(value))
+          } else if (typeof value === "object" && value !== null) {
+            // Handle objects
+            formData.append(key, JSON.stringify(value))
+          } else {
+            // Handle primitive values
+            formData.append(key, String(value))
+          }
+        }
+      })
 
       // Submit the form data to the server action
       const result = await submitApplication(formData)
@@ -99,44 +145,126 @@ export default function ApplyPage() {
         setApplicationId(result.applicationId || "")
         setFormSubmitted(true)
         window.scrollTo(0, 0)
+
+        // Store application ID in localStorage for reference
+        try {
+          localStorage.setItem("lastApplicationId", result.applicationId || "")
+        } catch (e) {
+          // Ignore localStorage errors
+        }
       } else {
-        alert(result.message || "Failed to submit application")
+        setErrorMessage(result.message || "Failed to submit application")
+        setShowErrorDialog(true)
       }
     } catch (error) {
       console.error("Error submitting form:", error)
-      alert("An error occurred while submitting your application. Please try again.")
+      setErrorMessage(
+        error instanceof Error ? `Error: ${error.message}` : "An unexpected error occurred. Please try again.",
+      )
+      setShowErrorDialog(true)
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  /**
+   * Validates the current step and proceeds to the next if valid
+   */
   const nextStep = async () => {
-    let isValid = true;
+    let fieldsToValidate: string[] = []
 
-    // Validate the current step
-    await handleSubmit(
-      () => { }, // Valid case
-      () => {
-        isValid = false; // Invalid case
-      }
-    )();
-
-    if (!isValid) {
-      console.log("Validation errors:", errors); // Log errors for debugging
-      return; // Prevent moving to the next step if validation fails
+    // Determine which fields to validate based on current step
+    switch (step) {
+      case 1: // Personal Information
+        fieldsToValidate = [
+          "firstName",
+          "lastName",
+          "fatherName",
+          "motherName",
+          "dob",
+          "sex",
+          "govtIdNumber",
+          "nationality",
+          "state",
+          "city",
+          "district",
+          "pincode",
+          "residentialAddress",
+          "studentMobile",
+          "fatherMobile",
+          "studentEmail",
+        ]
+        break
+      case 2: // Family & Financial Information
+        fieldsToValidate = ["fatherOccupation", "fatherIncome", "fatherIncomeCurrency"]
+        break
+      case 3: // Academic Information
+        fieldsToValidate = [
+          "currentlyEnrolled",
+          "tenthScore",
+          "tenthSubjects",
+          "tenthBoard",
+          "tenthYear",
+          "twelfthScore",
+          "twelfthSubjects",
+          "twelfthBoard",
+          "twelfthYear",
+        ]
+        break
+      case 4: // Program Selection & Documents
+        fieldsToValidate = [
+          "programType",
+          "firstPreference",
+          "hostelRequired",
+          "studentDeclaration",
+          "parentDeclaration",
+        ]
+        break
     }
 
+    // Validate the fields for the current step
+    const isStepValid = await trigger(fieldsToValidate as any)
+
+    if (!isStepValid) {
+      // Collect all errors for the current step
+      const currentErrors: Record<string, string[]> = {}
+
+      Object.entries(errors).forEach(([field, error]) => {
+        if (fieldsToValidate.includes(field)) {
+          currentErrors[field] = [error.message as string]
+        }
+      })
+
+      setFormErrors(currentErrors)
+
+      // Scroll to the first error
+      const firstErrorField = document.querySelector('[aria-invalid="true"]')
+      if (firstErrorField) {
+        firstErrorField.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
+
+      return
+    }
+
+    // Clear errors for this step
+    setFormErrors({})
+
     // Move to the next step
-    console.log("Proceeding to the next step...");
-    setStep((prevStep) => prevStep + 1);
-    window.scrollTo(0, 0); // Scroll to the top of the page
+    setStep((prevStep) => prevStep + 1)
+    window.scrollTo(0, 0)
   }
 
+  /**
+   * Moves to the previous step
+   */
   const prevStep = () => {
     setStep(step - 1)
     window.scrollTo(0, 0)
   }
 
+  /**
+   * Renders the appropriate form step or success message
+   */
   const renderForm = () => {
     if (formSubmitted) {
       return (
@@ -174,6 +302,16 @@ export default function ApplyPage() {
         return (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6">Personal Information</h2>
+
+            {/* Display any form errors */}
+            {Object.keys(formErrors).length > 0 && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>Please correct the errors below before proceeding.</AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -184,7 +322,8 @@ export default function ApplyPage() {
                     id="firstName"
                     placeholder="Enter your first name"
                     {...register("firstName")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.firstName ? "border-red-500" : ""}`}
+                    aria-invalid={errors.firstName ? "true" : "false"}
                   />
                   {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName.message}</p>}
                 </div>
@@ -197,7 +336,8 @@ export default function ApplyPage() {
                     id="lastName"
                     placeholder="Enter your last name"
                     {...register("lastName")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.lastName ? "border-red-500" : ""}`}
+                    aria-invalid={errors.lastName ? "true" : "false"}
                   />
                   {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName.message}</p>}
                 </div>
@@ -212,7 +352,8 @@ export default function ApplyPage() {
                     id="fatherName"
                     placeholder="Enter father's name"
                     {...register("fatherName")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.fatherName ? "border-red-500" : ""}`}
+                    aria-invalid={errors.fatherName ? "true" : "false"}
                   />
                   {errors.fatherName && <p className="text-red-500 text-sm mt-1">{errors.fatherName.message}</p>}
                 </div>
@@ -225,7 +366,8 @@ export default function ApplyPage() {
                     id="motherName"
                     placeholder="Enter mother's name"
                     {...register("motherName")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.motherName ? "border-red-500" : ""}`}
+                    aria-invalid={errors.motherName ? "true" : "false"}
                   />
                   {errors.motherName && <p className="text-red-500 text-sm mt-1">{errors.motherName.message}</p>}
                 </div>
@@ -240,7 +382,10 @@ export default function ApplyPage() {
                     id="dob"
                     type="date"
                     {...register("dob")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.dob ? "border-red-500" : ""}`}
+                    aria-invalid={errors.dob ? "true" : "false"}
+                    // Set max date to today to prevent future dates
+                    max={new Date().toISOString().split("T")[0]}
                   />
                   {errors.dob && <p className="text-red-500 text-sm mt-1">{errors.dob.message}</p>}
                 </div>
@@ -253,7 +398,12 @@ export default function ApplyPage() {
                     name="sex"
                     control={control}
                     render={({ field }) => (
-                      <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-6">
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="flex gap-6"
+                        aria-invalid={errors.sex ? "true" : "false"}
+                      >
                         <div className="flex items-center space-x-2">
                           <RadioGroupItem value="Male" id="male" className="text-brand-orange" />
                           <Label htmlFor="male" className="text-white">
@@ -281,10 +431,21 @@ export default function ApplyPage() {
                 <div>
                   <label htmlFor="bloodGroup" className="block text-white font-medium mb-2">
                     Blood Group
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Optional field</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </label>
                   <Input
                     id="bloodGroup"
                     placeholder="e.g., A+, B-, O+"
+                    {...register("bloodGroup")}
                     {...register("bloodGroup")}
                     className="bg-gray-700/50 border-gray-600 text-white"
                   />
@@ -295,13 +456,27 @@ export default function ApplyPage() {
                 <div>
                   <label htmlFor="passportNumber" className="block text-white font-medium mb-2">
                     Passport Number
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Optional field</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </label>
                   <Input
                     id="passportNumber"
                     placeholder="Enter passport number (if available)"
                     {...register("passportNumber")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.passportNumber ? "border-red-500" : ""}`}
+                    aria-invalid={errors.passportNumber ? "true" : "false"}
                   />
+                  {errors.passportNumber && (
+                    <p className="text-red-500 text-sm mt-1">{errors.passportNumber.message}</p>
+                  )}
                 </div>
 
                 <div>
@@ -312,7 +487,8 @@ export default function ApplyPage() {
                     id="govtIdNumber"
                     placeholder="Enter government ID number"
                     {...register("govtIdNumber")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.govtIdNumber ? "border-red-500" : ""}`}
+                    aria-invalid={errors.govtIdNumber ? "true" : "false"}
                   />
                   {errors.govtIdNumber && <p className="text-red-500 text-sm mt-1">{errors.govtIdNumber.message}</p>}
                 </div>
@@ -327,7 +503,8 @@ export default function ApplyPage() {
                     id="nationality"
                     placeholder="Enter your nationality"
                     {...register("nationality")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.nationality ? "border-red-500" : ""}`}
+                    aria-invalid={errors.nationality ? "true" : "false"}
                   />
                   {errors.nationality && <p className="text-red-500 text-sm mt-1">{errors.nationality.message}</p>}
                 </div>
@@ -340,7 +517,8 @@ export default function ApplyPage() {
                     id="state"
                     placeholder="Enter your state"
                     {...register("state")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.state ? "border-red-500" : ""}`}
+                    aria-invalid={errors.state ? "true" : "false"}
                   />
                   {errors.state && <p className="text-red-500 text-sm mt-1">{errors.state.message}</p>}
                 </div>
@@ -355,7 +533,8 @@ export default function ApplyPage() {
                     id="city"
                     placeholder="Enter your city"
                     {...register("city")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.city ? "border-red-500" : ""}`}
+                    aria-invalid={errors.city ? "true" : "false"}
                   />
                   {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>}
                 </div>
@@ -368,7 +547,8 @@ export default function ApplyPage() {
                     id="district"
                     placeholder="Enter your district"
                     {...register("district")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.district ? "border-red-500" : ""}`}
+                    aria-invalid={errors.district ? "true" : "false"}
                   />
                   {errors.district && <p className="text-red-500 text-sm mt-1">{errors.district.message}</p>}
                 </div>
@@ -381,7 +561,8 @@ export default function ApplyPage() {
                     id="pincode"
                     placeholder="Enter your pincode"
                     {...register("pincode")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.pincode ? "border-red-500" : ""}`}
+                    aria-invalid={errors.pincode ? "true" : "false"}
                   />
                   {errors.pincode && <p className="text-red-500 text-sm mt-1">{errors.pincode.message}</p>}
                 </div>
@@ -395,7 +576,8 @@ export default function ApplyPage() {
                   id="residentialAddress"
                   placeholder="Enter your permanent address"
                   {...register("residentialAddress")}
-                  className="bg-gray-700/50 border-gray-600 text-white min-h-[100px]"
+                  className={`bg-gray-700/50 border-gray-600 text-white min-h-[100px] ${errors.residentialAddress ? "border-red-500" : ""}`}
+                  aria-invalid={errors.residentialAddress ? "true" : "false"}
                 />
                 {errors.residentialAddress && (
                   <p className="text-red-500 text-sm mt-1">{errors.residentialAddress.message}</p>
@@ -405,6 +587,16 @@ export default function ApplyPage() {
               <div>
                 <label htmlFor="secondaryAddress" className="block text-white font-medium mb-2">
                   Secondary Address
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Optional field</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </label>
                 <Textarea
                   id="secondaryAddress"
@@ -423,7 +615,8 @@ export default function ApplyPage() {
                     id="studentMobile"
                     placeholder="Enter your mobile number"
                     {...register("studentMobile")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.studentMobile ? "border-red-500" : ""}`}
+                    aria-invalid={errors.studentMobile ? "true" : "false"}
                   />
                   {errors.studentMobile && <p className="text-red-500 text-sm mt-1">{errors.studentMobile.message}</p>}
                 </div>
@@ -436,7 +629,8 @@ export default function ApplyPage() {
                     id="fatherMobile"
                     placeholder="Enter father's mobile number"
                     {...register("fatherMobile")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.fatherMobile ? "border-red-500" : ""}`}
+                    aria-invalid={errors.fatherMobile ? "true" : "false"}
                   />
                   {errors.fatherMobile && <p className="text-red-500 text-sm mt-1">{errors.fatherMobile.message}</p>}
                 </div>
@@ -444,13 +638,25 @@ export default function ApplyPage() {
                 <div>
                   <label htmlFor="motherMobile" className="block text-white font-medium mb-2">
                     Mobile Number of Mother/Guardian
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Optional field</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </label>
                   <Input
                     id="motherMobile"
                     placeholder="Enter mother's mobile number"
                     {...register("motherMobile")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.motherMobile ? "border-red-500" : ""}`}
+                    aria-invalid={errors.motherMobile ? "true" : "false"}
                   />
+                  {errors.motherMobile && <p className="text-red-500 text-sm mt-1">{errors.motherMobile.message}</p>}
                 </div>
               </div>
 
@@ -464,7 +670,8 @@ export default function ApplyPage() {
                     type="email"
                     placeholder="Enter your email address"
                     {...register("studentEmail")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.studentEmail ? "border-red-500" : ""}`}
+                    aria-invalid={errors.studentEmail ? "true" : "false"}
                   />
                   {errors.studentEmail && <p className="text-red-500 text-sm mt-1">{errors.studentEmail.message}</p>}
                 </div>
@@ -472,20 +679,31 @@ export default function ApplyPage() {
                 <div>
                   <label htmlFor="parentEmail" className="block text-white font-medium mb-2">
                     Parent's Email (or Guardian)
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Optional field</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </label>
                   <Input
                     id="parentEmail"
                     type="email"
                     placeholder="Enter parent's email address"
                     {...register("parentEmail")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.parentEmail ? "border-red-500" : ""}`}
+                    aria-invalid={errors.parentEmail ? "true" : "false"}
                   />
                   {errors.parentEmail && <p className="text-red-500 text-sm mt-1">{errors.parentEmail.message}</p>}
                 </div>
               </div>
 
               <div className="flex justify-end mt-8">
-                <Button onClick={nextStep} className="bg-brand-orange hover:bg-orange-600 text-white">
+                <Button onClick={nextStep} className="bg-brand-orange hover:bg-orange-600 text-white" type="button">
                   Next Step <ChevronRight className="ml-2 h-5 w-5" />
                 </Button>
               </div>
@@ -497,6 +715,16 @@ export default function ApplyPage() {
         return (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6">Family & Financial Information</h2>
+
+            {/* Display any form errors */}
+            {Object.keys(formErrors).length > 0 && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>Please correct the errors below before proceeding.</AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -507,7 +735,8 @@ export default function ApplyPage() {
                     id="fatherOccupation"
                     placeholder="Enter father's occupation"
                     {...register("fatherOccupation")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.fatherOccupation ? "border-red-500" : ""}`}
+                    aria-invalid={errors.fatherOccupation ? "true" : "false"}
                   />
                   {errors.fatherOccupation && (
                     <p className="text-red-500 text-sm mt-1">{errors.fatherOccupation.message}</p>
@@ -517,6 +746,16 @@ export default function ApplyPage() {
                 <div>
                   <label htmlFor="motherOccupation" className="block text-white font-medium mb-2">
                     Mother's Occupation
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Optional field</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </label>
                   <Input
                     id="motherOccupation"
@@ -537,11 +776,13 @@ export default function ApplyPage() {
                       id="fatherIncome"
                       placeholder="Enter annual income"
                       {...register("fatherIncome")}
-                      className="bg-gray-700/50 border-gray-600 text-white flex-1"
+                      className={`bg-gray-700/50 border-gray-600 text-white flex-1 ${errors.fatherIncome ? "border-red-500" : ""}`}
+                      aria-invalid={errors.fatherIncome ? "true" : "false"}
                     />
                     <Controller
                       name="fatherIncomeCurrency"
                       control={control}
+                      defaultValue="INR"
                       render={({ field }) => (
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <SelectTrigger className="bg-gray-700/50 border-gray-600 text-white w-28">
@@ -566,17 +807,29 @@ export default function ApplyPage() {
                 <div>
                   <label htmlFor="motherIncome" className="block text-white font-medium mb-2">
                     Annual Income of Mother (from all sources)
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Optional field</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </label>
                   <div className="flex gap-2">
                     <Input
                       id="motherIncome"
                       placeholder="Enter annual income"
                       {...register("motherIncome")}
-                      className="bg-gray-700/50 border-gray-600 text-white flex-1"
+                      className={`bg-gray-700/50 border-gray-600 text-white flex-1 ${errors.motherIncome ? "border-red-500" : ""}`}
+                      aria-invalid={errors.motherIncome ? "true" : "false"}
                     />
                     <Controller
                       name="motherIncomeCurrency"
                       control={control}
+                      defaultValue="INR"
                       render={({ field }) => (
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <SelectTrigger className="bg-gray-700/50 border-gray-600 text-white w-28">
@@ -595,6 +848,7 @@ export default function ApplyPage() {
                       )}
                     />
                   </div>
+                  {errors.motherIncome && <p className="text-red-500 text-sm mt-1">{errors.motherIncome.message}</p>}
                 </div>
               </div>
 
@@ -638,6 +892,7 @@ export default function ApplyPage() {
                         <Controller
                           name={`siblings.${index}.relation`}
                           control={control}
+                          defaultValue="Brother"
                           render={({ field }) => (
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <SelectTrigger className="bg-gray-700/50 border-gray-600 text-white">
@@ -683,10 +938,15 @@ export default function ApplyPage() {
               </div>
 
               <div className="flex justify-between mt-8">
-                <Button onClick={prevStep} variant="outline" className="border-white text-white hover:bg-white/10">
+                <Button
+                  onClick={prevStep}
+                  variant="outline"
+                  className="border-white text-white hover:bg-white/10"
+                  type="button"
+                >
                   <ChevronLeft className="mr-2 h-5 w-5" /> Previous
                 </Button>
-                <Button onClick={nextStep} className="bg-brand-orange hover:bg-orange-600 text-white">
+                <Button onClick={nextStep} className="bg-brand-orange hover:bg-orange-600 text-white" type="button">
                   Next Step <ChevronRight className="ml-2 h-5 w-5" />
                 </Button>
               </div>
@@ -698,6 +958,16 @@ export default function ApplyPage() {
         return (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6">Academic Information</h2>
+
+            {/* Display any form errors */}
+            {Object.keys(formErrors).length > 0 && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>Please correct the errors below before proceeding.</AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-6">
               <div className="bg-gray-800/30 p-6 rounded-lg border border-gray-700 mb-6">
                 <h3 className="text-xl font-bold text-white mb-4">Current Enrollment</h3>
@@ -706,20 +976,25 @@ export default function ApplyPage() {
                   <Controller
                     name="currentlyEnrolled"
                     control={control}
-                    defaultValue="No" // Provide a default value
+                    defaultValue="No"
                     render={({ field }) => (
                       <RadioGroup
                         onValueChange={field.onChange}
                         defaultValue={field.value}
                         className="flex gap-6"
+                        aria-invalid={errors.currentlyEnrolled ? "true" : "false"}
                       >
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Yes" id="enrolled-yes" />
-                          <Label htmlFor="enrolled-yes">Yes</Label>
+                          <RadioGroupItem value="Yes" id="enrolled-yes" className="text-brand-orange" />
+                          <Label htmlFor="enrolled-yes" className="text-white">
+                            Yes
+                          </Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="No" id="enrolled-no" />
-                          <Label htmlFor="enrolled-no">No</Label>
+                          <RadioGroupItem value="No" id="enrolled-no" className="text-brand-orange" />
+                          <Label htmlFor="enrolled-no" className="text-white">
+                            No
+                          </Label>
                         </div>
                       </RadioGroup>
                     )}
@@ -755,7 +1030,8 @@ export default function ApplyPage() {
                       id="tenthScore"
                       placeholder="Enter your percentage"
                       {...register("tenthScore")}
-                      className="bg-gray-700/50 border-gray-600 text-white"
+                      className={`bg-gray-700/50 border-gray-600 text-white ${errors.tenthScore ? "border-red-500" : ""}`}
+                      aria-invalid={errors.tenthScore ? "true" : "false"}
                     />
                     {errors.tenthScore && <p className="text-red-500 text-sm mt-1">{errors.tenthScore.message}</p>}
                   </div>
@@ -766,9 +1042,10 @@ export default function ApplyPage() {
                     </label>
                     <Input
                       id="tenthYear"
-                      placeholder="Enter year"
+                      placeholder="Enter year (e.g., 2020)"
                       {...register("tenthYear")}
-                      className="bg-gray-700/50 border-gray-600 text-white"
+                      className={`bg-gray-700/50 border-gray-600 text-white ${errors.tenthYear ? "border-red-500" : ""}`}
+                      aria-invalid={errors.tenthYear ? "true" : "false"}
                     />
                     {errors.tenthYear && <p className="text-red-500 text-sm mt-1">{errors.tenthYear.message}</p>}
                   </div>
@@ -782,7 +1059,8 @@ export default function ApplyPage() {
                     id="tenthSubjects"
                     placeholder="Enter subjects (comma separated)"
                     {...register("tenthSubjects")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.tenthSubjects ? "border-red-500" : ""}`}
+                    aria-invalid={errors.tenthSubjects ? "true" : "false"}
                   />
                   {errors.tenthSubjects && <p className="text-red-500 text-sm mt-1">{errors.tenthSubjects.message}</p>}
                 </div>
@@ -795,7 +1073,8 @@ export default function ApplyPage() {
                     id="tenthBoard"
                     placeholder="Enter school and board name"
                     {...register("tenthBoard")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.tenthBoard ? "border-red-500" : ""}`}
+                    aria-invalid={errors.tenthBoard ? "true" : "false"}
                   />
                   {errors.tenthBoard && <p className="text-red-500 text-sm mt-1">{errors.tenthBoard.message}</p>}
                 </div>
@@ -812,7 +1091,8 @@ export default function ApplyPage() {
                       id="twelfthScore"
                       placeholder="Enter your percentage"
                       {...register("twelfthScore")}
-                      className="bg-gray-700/50 border-gray-600 text-white"
+                      className={`bg-gray-700/50 border-gray-600 text-white ${errors.twelfthScore ? "border-red-500" : ""}`}
+                      aria-invalid={errors.twelfthScore ? "true" : "false"}
                     />
                     {errors.twelfthScore && <p className="text-red-500 text-sm mt-1">{errors.twelfthScore.message}</p>}
                   </div>
@@ -823,9 +1103,10 @@ export default function ApplyPage() {
                     </label>
                     <Input
                       id="twelfthYear"
-                      placeholder="Enter year"
+                      placeholder="Enter year (e.g., 2022)"
                       {...register("twelfthYear")}
-                      className="bg-gray-700/50 border-gray-600 text-white"
+                      className={`bg-gray-700/50 border-gray-600 text-white ${errors.twelfthYear ? "border-red-500" : ""}`}
+                      aria-invalid={errors.twelfthYear ? "true" : "false"}
                     />
                     {errors.twelfthYear && <p className="text-red-500 text-sm mt-1">{errors.twelfthYear.message}</p>}
                   </div>
@@ -839,7 +1120,8 @@ export default function ApplyPage() {
                     id="twelfthSubjects"
                     placeholder="Enter subjects (comma separated)"
                     {...register("twelfthSubjects")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.twelfthSubjects ? "border-red-500" : ""}`}
+                    aria-invalid={errors.twelfthSubjects ? "true" : "false"}
                   />
                   {errors.twelfthSubjects && (
                     <p className="text-red-500 text-sm mt-1">{errors.twelfthSubjects.message}</p>
@@ -854,7 +1136,8 @@ export default function ApplyPage() {
                     id="twelfthBoard"
                     placeholder="Enter school and board name"
                     {...register("twelfthBoard")}
-                    className="bg-gray-700/50 border-gray-600 text-white"
+                    className={`bg-gray-700/50 border-gray-600 text-white ${errors.twelfthBoard ? "border-red-500" : ""}`}
+                    aria-invalid={errors.twelfthBoard ? "true" : "false"}
                   />
                   {errors.twelfthBoard && <p className="text-red-500 text-sm mt-1">{errors.twelfthBoard.message}</p>}
                 </div>
@@ -884,6 +1167,16 @@ export default function ApplyPage() {
                       <div>
                         <label htmlFor="graduationStream" className="block text-white font-medium mb-2">
                           Undergraduate Stream
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Optional field</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </label>
                         <Input
                           id="graduationStream"
@@ -896,19 +1189,43 @@ export default function ApplyPage() {
                       <div>
                         <label htmlFor="graduationYear" className="block text-white font-medium mb-2">
                           Year of Passing
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Optional field</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </label>
                         <Input
                           id="graduationYear"
-                          placeholder="Enter year"
+                          placeholder="Enter year (e.g., 2023)"
                           {...register("graduationYear")}
-                          className="bg-gray-700/50 border-gray-600 text-white"
+                          className={`bg-gray-700/50 border-gray-600 text-white ${errors.graduationYear ? "border-red-500" : ""}`}
+                          aria-invalid={errors.graduationYear ? "true" : "false"}
                         />
+                        {errors.graduationYear && (
+                          <p className="text-red-500 text-sm mt-1">{errors.graduationYear.message}</p>
+                        )}
                       </div>
                     </div>
 
                     <div>
                       <label htmlFor="graduationSubjects" className="block text-white font-medium mb-2">
                         Subjects
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Optional field</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </label>
                       <Input
                         id="graduationSubjects"
@@ -921,6 +1238,16 @@ export default function ApplyPage() {
                     <div>
                       <label htmlFor="graduationUniversity" className="block text-white font-medium mb-2">
                         University
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Optional field</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </label>
                       <Input
                         id="graduationUniversity"
@@ -936,6 +1263,16 @@ export default function ApplyPage() {
                       <div>
                         <label htmlFor="pgStream" className="block text-white font-medium mb-2">
                           Postgraduate Stream
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Optional field</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </label>
                         <Input
                           id="pgStream"
@@ -948,19 +1285,41 @@ export default function ApplyPage() {
                       <div>
                         <label htmlFor="pgYear" className="block text-white font-medium mb-2">
                           Year of Passing
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Optional field</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </label>
                         <Input
                           id="pgYear"
-                          placeholder="Enter year"
+                          placeholder="Enter year (e.g., 2024)"
                           {...register("pgYear")}
-                          className="bg-gray-700/50 border-gray-600 text-white"
+                          className={`bg-gray-700/50 border-gray-600 text-white ${errors.pgYear ? "border-red-500" : ""}`}
+                          aria-invalid={errors.pgYear ? "true" : "false"}
                         />
+                        {errors.pgYear && <p className="text-red-500 text-sm mt-1">{errors.pgYear.message}</p>}
                       </div>
                     </div>
 
                     <div>
                       <label htmlFor="pgSubjects" className="block text-white font-medium mb-2">
                         Subjects
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Optional field</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </label>
                       <Input
                         id="pgSubjects"
@@ -973,6 +1332,16 @@ export default function ApplyPage() {
                     <div>
                       <label htmlFor="pgUniversity" className="block text-white font-medium mb-2">
                         University
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Optional field</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </label>
                       <Input
                         id="pgUniversity"
@@ -1042,7 +1411,7 @@ export default function ApplyPage() {
                         <label className="block text-white font-medium mb-2">Conducted in (Year)</label>
                         <Input
                           {...register(`entranceTests.${index}.year`)}
-                          placeholder="Enter year"
+                          placeholder="Enter year (e.g., 2023)"
                           className="bg-gray-700/50 border-gray-600 text-white"
                         />
                       </div>
@@ -1060,10 +1429,15 @@ export default function ApplyPage() {
               </div>
 
               <div className="flex justify-between mt-8">
-                <Button onClick={prevStep} variant="outline" className="border-white text-white hover:bg-white/10">
+                <Button
+                  onClick={prevStep}
+                  variant="outline"
+                  className="border-white text-white hover:bg-white/10"
+                  type="button"
+                >
                   <ChevronLeft className="mr-2 h-5 w-5" /> Previous
                 </Button>
-                <Button onClick={nextStep} className="bg-brand-orange hover:bg-orange-600 text-white">
+                <Button onClick={nextStep} className="bg-brand-orange hover:bg-orange-600 text-white" type="button">
                   Next Step <ChevronRight className="ml-2 h-5 w-5" />
                 </Button>
               </div>
@@ -1075,6 +1449,16 @@ export default function ApplyPage() {
         return (
           <div>
             <h2 className="text-2xl font-bold text-white mb-6">Program Selection & Documents</h2>
+
+            {/* Display any form errors */}
+            {Object.keys(formErrors).length > 0 && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>Please correct the errors below before proceeding.</AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-6">
               <div className="bg-gray-800/30 p-6 rounded-lg border border-gray-700 mb-6">
                 <h3 className="text-xl font-bold text-white mb-4">Program Preferences</h3>
@@ -1093,7 +1477,10 @@ export default function ApplyPage() {
                       control={control}
                       render={({ field }) => (
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <SelectTrigger className="bg-gray-700/50 border-gray-600 text-white">
+                          <SelectTrigger
+                            className={`bg-gray-700/50 border-gray-600 text-white ${errors.programType ? "border-red-500" : ""}`}
+                            aria-invalid={errors.programType ? "true" : "false"}
+                          >
                             <SelectValue placeholder="Select program type" />
                           </SelectTrigger>
                           <SelectContent className="bg-gray-800 border-gray-700">
@@ -1117,7 +1504,8 @@ export default function ApplyPage() {
                       id="firstPreference"
                       placeholder="Enter your first course preference"
                       {...register("firstPreference")}
-                      className="bg-gray-700/50 border-gray-600 text-white"
+                      className={`bg-gray-700/50 border-gray-600 text-white ${errors.firstPreference ? "border-red-500" : ""}`}
+                      aria-invalid={errors.firstPreference ? "true" : "false"}
                     />
                     {errors.firstPreference && (
                       <p className="text-red-500 text-sm mt-1">{errors.firstPreference.message}</p>
@@ -1127,6 +1515,16 @@ export default function ApplyPage() {
                   <div>
                     <label htmlFor="secondPreference" className="block text-white font-medium mb-2">
                       Second Preference (Optional)
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Optional field</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </label>
                     <Input
                       id="secondPreference"
@@ -1139,6 +1537,16 @@ export default function ApplyPage() {
                   <div>
                     <label htmlFor="thirdPreference" className="block text-white font-medium mb-2">
                       Third Preference (Optional)
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Optional field</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </label>
                     <Input
                       id="thirdPreference"
@@ -1197,7 +1605,22 @@ export default function ApplyPage() {
                           </p>
                           <p className="text-xs text-gray-400">PDF or JPG (MAX. 2MB)</p>
                         </div>
-                        <input type="file" name="documents.idCard" className="hidden" />
+                        <input
+                          type="file"
+                          name="documents.idCard"
+                          className="hidden"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) => {
+                            // Validate file size
+                            if (e.target.files && e.target.files[0]) {
+                              const file = e.target.files[0]
+                              if (file.size > 2 * 1024 * 1024) {
+                                alert("File size exceeds 2MB limit. Please choose a smaller file.")
+                                e.target.value = ""
+                              }
+                            }
+                          }}
+                        />
                       </label>
                     </div>
                   </div>
@@ -1215,7 +1638,22 @@ export default function ApplyPage() {
                           </p>
                           <p className="text-xs text-gray-400">PDF or JPG (MAX. 2MB)</p>
                         </div>
-                        <input type="file" name="documents.tenthCertificate" className="hidden" />
+                        <input
+                          type="file"
+                          name="documents.tenthCertificate"
+                          className="hidden"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) => {
+                            // Validate file size
+                            if (e.target.files && e.target.files[0]) {
+                              const file = e.target.files[0]
+                              if (file.size > 2 * 1024 * 1024) {
+                                alert("File size exceeds 2MB limit. Please choose a smaller file.")
+                                e.target.value = ""
+                              }
+                            }
+                          }}
+                        />
                       </label>
                     </div>
                   </div>
@@ -1233,13 +1671,40 @@ export default function ApplyPage() {
                           </p>
                           <p className="text-xs text-gray-400">PDF or JPG (MAX. 2MB)</p>
                         </div>
-                        <input type="file" name="documents.twelfthCertificate" className="hidden" />
+                        <input
+                          type="file"
+                          name="documents.twelfthCertificate"
+                          className="hidden"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) => {
+                            // Validate file size
+                            if (e.target.files && e.target.files[0]) {
+                              const file = e.target.files[0]
+                              if (file.size > 2 * 1024 * 1024) {
+                                alert("File size exceeds 2MB limit. Please choose a smaller file.")
+                                e.target.value = ""
+                              }
+                            }
+                          }}
+                        />
                       </label>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-white font-medium mb-2">Graduation Certificate (if applicable)</label>
+                    <label className="block text-white font-medium mb-2">
+                      Graduation Certificate (if applicable)
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 ml-1 inline-block text-gray-400" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Optional field</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </label>
                     <div className="flex items-center justify-center w-full">
                       <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-gray-700/30 border-gray-600 hover:bg-gray-700/50">
                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -1249,7 +1714,22 @@ export default function ApplyPage() {
                           </p>
                           <p className="text-xs text-gray-400">PDF or JPG (MAX. 2MB)</p>
                         </div>
-                        <input type="file" name="documents.graduationCertificate" className="hidden" />
+                        <input
+                          type="file"
+                          name="documents.graduationCertificate"
+                          className="hidden"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          onChange={(e) => {
+                            // Validate file size
+                            if (e.target.files && e.target.files[0]) {
+                              const file = e.target.files[0]
+                              if (file.size > 2 * 1024 * 1024) {
+                                alert("File size exceeds 2MB limit. Please choose a smaller file.")
+                                e.target.value = ""
+                              }
+                            }
+                          }}
+                        />
                       </label>
                     </div>
                   </div>
@@ -1267,7 +1747,22 @@ export default function ApplyPage() {
                           </p>
                           <p className="text-xs text-gray-400">JPG (MAX. 1MB)</p>
                         </div>
-                        <input type="file" name="documents.photo" className="hidden" />
+                        <input
+                          type="file"
+                          name="documents.photo"
+                          className="hidden"
+                          accept=".jpg,.jpeg,.png"
+                          onChange={(e) => {
+                            // Validate file size
+                            if (e.target.files && e.target.files[0]) {
+                              const file = e.target.files[0]
+                              if (file.size > 1 * 1024 * 1024) {
+                                alert("File size exceeds 1MB limit. Please choose a smaller file.")
+                                e.target.value = ""
+                              }
+                            }
+                          }}
+                        />
                       </label>
                     </div>
                   </div>
@@ -1324,7 +1819,8 @@ export default function ApplyPage() {
                           id="studentDeclaration"
                           checked={field.value}
                           onCheckedChange={field.onChange}
-                          className="mt-1 data-[state=checked]:bg-brand-orange data-[state=checked]:border-brand-orange"
+                          className={`mt-1 data-[state=checked]:bg-brand-orange data-[state=checked]:border-brand-orange ${errors.studentDeclaration ? "border-red-500" : ""}`}
+                          aria-invalid={errors.studentDeclaration ? "true" : "false"}
                         />
                       )}
                     />
@@ -1358,7 +1854,8 @@ export default function ApplyPage() {
                           id="parentDeclaration"
                           checked={field.value}
                           onCheckedChange={field.onChange}
-                          className="mt-1 data-[state=checked]:bg-brand-orange data-[state=checked]:border-brand-orange"
+                          className={`mt-1 data-[state=checked]:bg-brand-orange data-[state=checked]:border-brand-orange ${errors.parentDeclaration ? "border-red-500" : ""}`}
+                          aria-invalid={errors.parentDeclaration ? "true" : "false"}
                         />
                       )}
                     />
@@ -1373,7 +1870,12 @@ export default function ApplyPage() {
               </div>
 
               <div className="flex justify-between mt-8">
-                <Button onClick={prevStep} variant="outline" className="border-white text-white hover:bg-white/10">
+                <Button
+                  onClick={prevStep}
+                  variant="outline"
+                  className="border-white text-white hover:bg-white/10"
+                  type="button"
+                >
                   <ChevronLeft className="mr-2 h-5 w-5" /> Previous
                 </Button>
                 <Button
@@ -1381,7 +1883,33 @@ export default function ApplyPage() {
                   disabled={isSubmitting}
                   className="bg-brand-orange hover:bg-orange-600 text-white"
                 >
-                  {isSubmitting ? "Submitting..." : "Submit Application"}
+                  {isSubmitting ? (
+                    <>
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    "Submit Application"
+                  )}
                 </Button>
               </div>
             </div>
@@ -1389,9 +1917,35 @@ export default function ApplyPage() {
         )
 
       default:
-        return null
+        return (
+          <div className="text-center text-white">
+            <p>Invalid step. Please refresh the page or contact support.</p>
+          </div>
+        )
     }
   }
+
+  // Error dialog component
+  const ErrorDialog = () => (
+    <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+      <DialogContent className="bg-gray-800 text-white border-gray-700">
+        <DialogHeader>
+          <DialogTitle className="text-red-500">Error Submitting Application</DialogTitle>
+          <DialogDescription className="text-gray-300">
+            There was a problem submitting your application.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <p className="text-white">{errorMessage}</p>
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={() => setShowErrorDialog(false)} className="bg-brand-orange hover:bg-orange-600 text-white">
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 
   return (
     <div className="bg-gradient-to-b from-black to-gray-900 min-h-screen pt-24 pb-20">
@@ -1452,11 +2006,14 @@ export default function ApplyPage() {
         )}
 
         <div className="max-w-4xl mx-auto">
-          <form ref={formRef} onSubmit={handleSubmit(onSubmit)}>
+          <form ref={formRef} onSubmit={handleSubmit((data) => onSubmit(data))}>
             <div className="bg-gray-800/50 p-8 rounded-xl border border-gray-700">{renderForm()}</div>
           </form>
         </div>
       </div>
+
+      {/* Error Dialog */}
+      <ErrorDialog />
     </div>
   )
 }

@@ -5,16 +5,28 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { CheckCircle, AlertCircle, Clock, Search } from "lucide-react"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle, CheckCircle, Clock, Info } from "lucide-react"
+import { checkApplicationStatus } from "../actions/check-application-status"
+import Link from "next/link"
 
+/**
+ * Status Check Page Component
+ *
+ * Allows applicants to check the status of their scholarship application
+ * using their application ID and contact number
+ */
 export default function CheckStatusPage() {
   const [applicationId, setApplicationId] = useState("")
   const [contactNumber, setContactNumber] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<any>(null)
 
+  /**
+   * Handles form submission to check application status
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -22,52 +34,92 @@ export default function CheckStatusPage() {
     setResult(null)
 
     try {
-      const response = await fetch("/api/check-status", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ applicationId, contactNumber }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to check application status")
+      // Validate inputs
+      if (!applicationId.match(/^IAF-\d{4}-\d{5}$/)) {
+        setError("Please enter a valid application ID (format: IAF-YYYY-XXXXX)")
+        setIsLoading(false)
+        return
       }
 
-      setResult(data.data)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      if (!contactNumber.match(/^[+]?[0-9\s-()]{10,15}$/)) {
+        setError("Please enter a valid contact number")
+        setIsLoading(false)
+        return
+      }
+
+      // Create form data
+      const formData = new FormData()
+      formData.append("applicationId", applicationId)
+      formData.append("contactNumber", contactNumber)
+
+      // Submit to server action
+      const response = await checkApplicationStatus(formData)
+
+      if (response.success) {
+        setResult(response.data)
+      } else {
+        setError(response.message || "Failed to check application status")
+      }
+    } catch (err) {
+      console.error("Error checking status:", err)
+      setError("An unexpected error occurred. Please try again later.")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const getStatusIcon = (status: string) => {
+  /**
+   * Renders the status badge based on application status
+   */
+  const renderStatusBadge = (status: string) => {
     switch (status) {
-      case "Approved":
-        return <CheckCircle className="h-12 w-12 text-green-500" />
-      case "Rejected":
-        return <AlertCircle className="h-12 w-12 text-red-500" />
       case "Pending":
+        return (
+          <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-500">
+            <Clock className="w-3 h-3 mr-1" />
+            Pending
+          </div>
+        )
       case "Under Review":
+        return (
+          <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-500">
+            <Info className="w-3 h-3 mr-1" />
+            Under Review
+          </div>
+        )
+      case "Approved":
+        return (
+          <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-500">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Approved
+          </div>
+        )
+      case "Rejected":
+        return (
+          <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-500">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Rejected
+          </div>
+        )
       default:
-        return <Clock className="h-12 w-12 text-yellow-500" />
+        return (
+          <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-500/20 text-gray-500">
+            {status}
+          </div>
+        )
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Approved":
-        return "text-green-500"
-      case "Rejected":
-        return "text-red-500"
-      case "Pending":
-      case "Under Review":
-      default:
-        return "text-yellow-500"
-    }
+  /**
+   * Formats a date string for display
+   */
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
   }
 
   return (
@@ -84,82 +136,133 @@ export default function CheckStatusPage() {
           <Card className="bg-gray-800/50 border-gray-700">
             <CardHeader>
               <CardTitle className="text-white">Application Status</CardTitle>
-              <CardDescription className="text-gray-400">Enter your details below to check your status</CardDescription>
+              <CardDescription className="text-gray-300">Enter your details below to check your status</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="applicationId" className="block text-white font-medium mb-2">
+                <div className="space-y-2">
+                  <label htmlFor="applicationId" className="text-white font-medium">
                     Application ID
                   </label>
                   <Input
                     id="applicationId"
-                    placeholder="e.g., IAF-2025-12345"
+                    placeholder="e.g., IAF-2023-12345"
                     value={applicationId}
                     onChange={(e) => setApplicationId(e.target.value)}
-                    required
                     className="bg-gray-700/50 border-gray-600 text-white"
+                    required
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="contactNumber" className="block text-white font-medium mb-2">
+                <div className="space-y-2">
+                  <label htmlFor="contactNumber" className="text-white font-medium">
                     Contact Number
                   </label>
                   <Input
                     id="contactNumber"
-                    placeholder="Enter the phone number used in application"
+                    placeholder="Enter the mobile number used in application"
                     value={contactNumber}
                     onChange={(e) => setContactNumber(e.target.value)}
-                    required
                     className="bg-gray-700/50 border-gray-600 text-white"
+                    required
                   />
                 </div>
 
+                {error && (
+                  <Alert variant="destructive" className="bg-red-900/20 border-red-900">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
                 <Button
                   type="submit"
-                  disabled={isLoading}
                   className="w-full bg-brand-orange hover:bg-orange-600 text-white"
+                  disabled={isLoading}
                 >
-                  {isLoading ? "Checking..." : "Check Status"}
-                  {!isLoading && <Search className="ml-2 h-4 w-4" />}
+                  {isLoading ? (
+                    <>
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Checking...
+                    </>
+                  ) : (
+                    "Check Status"
+                  )}
                 </Button>
               </form>
-
-              {error && (
-                <div className="mt-6 p-4 bg-red-900/20 border border-red-800 rounded-lg">
-                  <p className="text-red-400 text-center">{error}</p>
-                </div>
-              )}
-
-              {result && (
-                <div className="mt-6 p-6 bg-gray-700/30 border border-gray-600 rounded-lg">
-                  <div className="flex justify-center mb-4">{getStatusIcon(result.status)}</div>
-                  <h3 className="text-xl font-bold text-white text-center mb-4">
-                    Status: <span className={getStatusColor(result.status)}>{result.status}</span>
-                  </h3>
-                  <div className="space-y-3 text-gray-300">
-                    <p>
-                      <span className="font-semibold">Name:</span> {result.name}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Application ID:</span> {result.applicationId}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Program:</span> {result.programType}
-                    </p>
-                    <p>
-                      <span className="font-semibold">First Preference:</span> {result.firstPreference}
-                    </p>
-                    <p>
-                      <span className="font-semibold">Submitted On:</span>{" "}
-                      {new Date(result.submittedAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
+
+          {result && (
+            <Card className="mt-8 bg-gray-800/50 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center justify-between">
+                  <span>Application Details</span>
+                  {renderStatusBadge(result.status)}
+                </CardTitle>
+                <CardDescription className="text-gray-300">Application ID: {result.applicationId}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="text-gray-400 text-sm">Applicant Name</h3>
+                  <p className="text-white font-medium">{result.name}</p>
+                </div>
+                <div>
+                  <h3 className="text-gray-400 text-sm">Program Type</h3>
+                  <p className="text-white font-medium">{result.programType}</p>
+                </div>
+                <div>
+                  <h3 className="text-gray-400 text-sm">Submitted On</h3>
+                  <p className="text-white font-medium">{formatDate(result.submittedAt)}</p>
+                </div>
+                <div>
+                  <h3 className="text-gray-400 text-sm">Last Updated</h3>
+                  <p className="text-white font-medium">{formatDate(result.lastUpdated)}</p>
+                </div>
+                {result.statusDetails && (
+                  <div>
+                    <h3 className="text-gray-400 text-sm">Status Details</h3>
+                    <p className="text-white font-medium">{result.statusDetails}</p>
+                  </div>
+                )}
+                {result.expectedResponseDate && (
+                  <div>
+                    <h3 className="text-gray-400 text-sm">Expected Response Date</h3>
+                    <p className="text-white font-medium">{formatDate(result.expectedResponseDate)}</p>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter>
+                <p className="text-gray-400 text-sm">
+                  If you have any questions, please{" "}
+                  <Link href="/contact" className="text-brand-orange hover:underline">
+                    contact us
+                  </Link>
+                  .
+                </p>
+              </CardFooter>
+            </Card>
+          )}
         </div>
       </div>
     </div>
